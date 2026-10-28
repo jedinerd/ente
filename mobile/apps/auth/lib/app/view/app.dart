@@ -5,6 +5,7 @@ import 'package:ente_auth/core/configuration.dart';
 import 'package:ente_auth/ente_theme_data.dart';
 import 'package:ente_auth/locale.dart';
 import 'package:ente_auth/onboarding/view/onboarding_page.dart';
+import 'package:ente_auth/services/app_visibility.dart';
 import 'package:ente_auth/services/auth_theme_preferences.dart';
 import 'package:ente_auth/services/authenticator_service.dart';
 import 'package:ente_auth/services/update_service.dart';
@@ -72,6 +73,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
   @override
   void initState() {
     WidgetsBinding.instance.addObserver(this);
+    AppVisibility.onLifecycleChanged(WidgetsBinding.instance.lifecycleState);
     _themeMode = widget.savedThemeMode;
 
     _signedOutEvent = Bus.instance.on<SignedOutEvent>().listen((event) {
@@ -112,6 +114,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
 
   @override
   Future<void> didChangeAppLifecycleState(AppLifecycleState state) async {
+    AppVisibility.onLifecycleChanged(state);
     if (state == AppLifecycleState.resumed) {
       if (Configuration.instance.hasConfiguredAccount()) {
         AuthenticatorService.instance.onlineSync().ignore();

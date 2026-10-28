@@ -8,6 +8,7 @@ import 'package:ente_auth/ente_theme_data.dart';
 import 'package:ente_auth/events/multi_select_action_requested_event.dart';
 import 'package:ente_auth/models/code.dart';
 import 'package:ente_auth/onboarding/view/setup_enter_secret_key_page.dart';
+import 'package:ente_auth/services/app_visibility.dart';
 import 'package:ente_auth/services/local_backup_service.dart';
 import 'package:ente_auth/services/preference_service.dart';
 import 'package:ente_auth/store/code_display_store.dart';
@@ -82,36 +83,61 @@ class _CodeWidgetState extends State<CodeWidget> {
     isMaskingEnabled = PreferenceService.instance.shouldHideCodes();
 
     _hideCode = isMaskingEnabled;
-    _everySecondTimer = Timer.periodic(const Duration(milliseconds: 500), (
-      Timer t,
-    ) {
-      if (!mounted) return;
-      int newStep = 0;
-      int epochSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      if (widget.code.type != Type.hotp) {
-        newStep = ((epochSeconds.round()) ~/ widget.code.period).floor();
-      } else {
-        newStep = widget.code.counter;
-      }
-      if (_codeTimeStep != newStep ||
-          epochSeconds - lastRefreshTime > widget.code.period) {
-        String newCode = _getCurrentOTP();
-        if (newCode != _currentCode.value && mounted) {
-          _currentCode.value = newCode;
-          if (widget.code.type.isTOTPCompatible) {
-            _nextCode.value = _getNextTotp();
-          }
-          _codeTimeStep = newStep;
-          lastRefreshTime = epochSeconds;
-        }
-      }
-    });
+    AppVisibility.isVisible.addListener(_onVisibilityChanged);
+    if (AppVisibility.isVisible.value) {
+      _startRefreshTimer();
+    }
     hasConfiguredAccount = Configuration.instance.hasConfiguredAccount();
+  }
+
+  void _onVisibilityChanged() {
+    if (AppVisibility.isVisible.value) {
+      _refreshCode();
+      _startRefreshTimer();
+    } else {
+      _stopRefreshTimer();
+    }
+  }
+
+  void _startRefreshTimer() {
+    _everySecondTimer ??= Timer.periodic(
+      const Duration(milliseconds: 500),
+      (_) => _refreshCode(),
+    );
+  }
+
+  void _stopRefreshTimer() {
+    _everySecondTimer?.cancel();
+    _everySecondTimer = null;
+  }
+
+  void _refreshCode() {
+    if (!mounted) return;
+    int newStep = 0;
+    int epochSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    if (widget.code.type != Type.hotp) {
+      newStep = ((epochSeconds.round()) ~/ widget.code.period).floor();
+    } else {
+      newStep = widget.code.counter;
+    }
+    if (_codeTimeStep != newStep ||
+        epochSeconds - lastRefreshTime > widget.code.period) {
+      String newCode = _getCurrentOTP();
+      if (newCode != _currentCode.value && mounted) {
+        _currentCode.value = newCode;
+        if (widget.code.type.isTOTPCompatible) {
+          _nextCode.value = _getNextTotp();
+        }
+        _codeTimeStep = newStep;
+        lastRefreshTime = epochSeconds;
+      }
+    }
   }
 
   @override
   void dispose() {
-    _everySecondTimer?.cancel();
+    AppVisibility.isVisible.removeListener(_onVisibilityChanged);
+    _stopRefreshTimer();
     _currentCode.dispose();
     _nextCode.dispose();
     super.dispose();
