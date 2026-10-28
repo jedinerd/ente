@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:ente_auth/services/app_visibility.dart';
 import 'package:ente_auth/services/preference_service.dart';
 import 'package:ente_auth/services/windows_window_placement.dart';
 import 'package:flutter/widgets.dart';
@@ -99,10 +100,16 @@ class WindowListenerService with WindowListener, TrayListener {
   void onWindowResized() => unawaited(_windowsPlacement?.save());
 
   @override
-  void onWindowMinimize() => unawaited(_windowsPlacement?.save());
+  void onWindowMinimize() {
+    AppVisibility.onWindowShown(false);
+    unawaited(_windowsPlacement?.save());
+  }
 
   @override
-  void onWindowRestore() => unawaited(_windowsPlacement?.save());
+  void onWindowRestore() {
+    AppVisibility.onWindowShown(true);
+    unawaited(_windowsPlacement?.save());
+  }
 
   Future<void> _saveWindowSize() async {
     final width = (await windowManager.getSize()).width;
@@ -188,6 +195,7 @@ class WindowListenerService with WindowListener, TrayListener {
       await windowManager.setBounds(Rect.fromLTWH(x, y, w, h));
     }
     await windowManager.show();
+    AppVisibility.onWindowShown(true);
   }
 
   // screen_retriever's macOS getCursorScreenPoint flips y against the lowest
@@ -240,6 +248,7 @@ class WindowListenerService with WindowListener, TrayListener {
 
   @override
   void onWindowFocus() {
+    AppVisibility.onWindowShown(true);
     if (Platform.isWindows || Platform.isLinux) {
       unawaited(windowManager.setSkipTaskbar(false));
     }
@@ -296,6 +305,7 @@ class WindowListenerService with WindowListener, TrayListener {
   Future<void> _hideWindow() async {
     await _windowsPlacement?.save();
     await windowManager.hide();
+    AppVisibility.onWindowShown(false);
     if (isMenubarMode()) {
       if (_isOneOffWindowed) {
         await _applyPopoverWindowStyle();
@@ -323,6 +333,7 @@ class WindowListenerService with WindowListener, TrayListener {
     await windowManager.setSize(_savedWindowSize());
     await windowManager.center();
     await windowManager.show();
+    AppVisibility.onWindowShown(true);
   }
 
   Future<void> _applyPopoverWindowStyle() async {
@@ -351,6 +362,7 @@ class WindowListenerService with WindowListener, TrayListener {
     }
     await windowManager.show();
     await windowManager.setSkipTaskbar(false);
+    AppVisibility.onWindowShown(true);
   }
 
   Future<void> _quitApp() async {
