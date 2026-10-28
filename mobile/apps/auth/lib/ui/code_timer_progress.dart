@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:ente_auth/services/app_visibility.dart';
 import 'package:ente_auth/theme/ente_theme.dart';
 import 'package:flutter/material.dart';
 
@@ -20,9 +21,9 @@ class CodeTimerProgress extends StatefulWidget {
 }
 
 class _CodeTimerProgressState extends State<CodeTimerProgress> {
-  late final Timer _timer;
+  Timer? _timer;
   late final ValueNotifier<double> _progress;
-  late final int _periodInMilii;
+  late int _periodInMilii;
 
   final int _updateIntervalMs = (Platform.isAndroid || Platform.isIOS)
       ? 16
@@ -34,11 +35,30 @@ class _CodeTimerProgressState extends State<CodeTimerProgress> {
     _periodInMilii = widget.period * 1000;
     _progress = ValueNotifier<double>(0.0);
     _updateTimeRemaining(DateTime.now().millisecondsSinceEpoch);
+    AppVisibility.isVisible.addListener(_onVisibilityChanged);
+    if (AppVisibility.isVisible.value) {
+      _startTimer();
+    }
+  }
 
-    _timer = Timer.periodic(Duration(milliseconds: _updateIntervalMs), (timer) {
-      final now = DateTime.now().millisecondsSinceEpoch;
-      _updateTimeRemaining(now);
+  void _onVisibilityChanged() {
+    if (AppVisibility.isVisible.value) {
+      _updateTimeRemaining(DateTime.now().millisecondsSinceEpoch);
+      _startTimer();
+    } else {
+      _stopTimer();
+    }
+  }
+
+  void _startTimer() {
+    _timer ??= Timer.periodic(Duration(milliseconds: _updateIntervalMs), (_) {
+      _updateTimeRemaining(DateTime.now().millisecondsSinceEpoch);
     });
+  }
+
+  void _stopTimer() {
+    _timer?.cancel();
+    _timer = null;
   }
 
   void _updateTimeRemaining(int currentMilliSeconds) {
@@ -60,7 +80,8 @@ class _CodeTimerProgressState extends State<CodeTimerProgress> {
 
   @override
   void dispose() {
-    _timer.cancel();
+    AppVisibility.isVisible.removeListener(_onVisibilityChanged);
+    _stopTimer();
     _progress.dispose();
     super.dispose();
   }
@@ -74,7 +95,6 @@ class _CodeTimerProgressState extends State<CodeTimerProgress> {
         valueListenable: _progress,
         builder: (context, progress, _) {
           return CustomPaint(
-            key: Key(progress.toString()),
             painter: _ProgressPainter(
               progress: progress,
               color: progress > 0.4
