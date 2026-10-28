@@ -246,6 +246,15 @@ class WindowListenerService with WindowListener, TrayListener {
     return best;
   }
 
+  // Catch-all so a missed specific callback on any desktop still restarts
+  // the code timers once the window is back on screen.
+  @override
+  void onWindowEvent(String eventName) {
+    if (eventName == 'show' || eventName == 'restore' || eventName == 'focus') {
+      AppVisibility.onWindowShown(true);
+    }
+  }
+
   @override
   void onWindowFocus() {
     AppVisibility.onWindowShown(true);
