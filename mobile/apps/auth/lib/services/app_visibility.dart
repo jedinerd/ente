@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 // Whether the app is on screen. Code widgets stop their refresh timers while
